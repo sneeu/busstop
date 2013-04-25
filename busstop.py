@@ -4,7 +4,9 @@ import requests
 
 
 BASE_URL = (
-    'http://old.mybustracker.co.uk/getBusStopDepartures.php?refreshCount=0&clientType=b&busStopCode=%s&busStopDay=0&busStopService=0&numberOfPassage=2&busStopTime=&busStopDestination=0')
+    'http://old.mybustracker.co.uk/getBusStopDepartures.php'
+    '?refreshCount=0&clientType=b&busStopCode=%s&busStopDay=0&busStopService=0'
+    '&numberOfPassage=2&busStopTime=&busStopDestination=0')
 
 
 def fetch_feed(bus_stop_code):
@@ -13,8 +15,10 @@ def fetch_feed(bus_stop_code):
 
 
 def parse_feed_data(feed_data):
-    root = etree.fromstring(feed_data.replace(
-        '<?xml version="1.0" encoding="iso-8859-1"?>', '').replace('xmlns', 'xmlnamespace'))
+    cleaned_data = feed_data\
+        .replace('<?xml version="1.0" encoding="iso-8859-1"?>', '')\
+        .replace('xmlns', 'xmlnamespace')
+    root = etree.fromstring(cleaned_data)
 
     arrivals = []
 
@@ -31,6 +35,8 @@ def parse_feed_data(feed_data):
 
 def format_arrivals(arrivals):
     r = []
+    if arrivals:
+        r.append('Service,Time')
 
     for serv, time in sorted(arrivals, key=lambda a: (a[1], a[0])):
         time = str(time)
