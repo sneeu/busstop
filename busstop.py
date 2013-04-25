@@ -1,58 +1,62 @@
-import requests
+from gevent.pywsgi import WSGIServer
 from lxml import etree
+import requests
 
 
-BASE_URL = 'http://www.mybustracker.co.uk/update.php?module=BTTimeConsult&updateId=timesResult'
-
-
-BASE_DATA = {
-    'mode': 1,
-    'openMap': 0,
-    'refresh': 1,
-    'autoRefreshCheck': '',
-    'fullCheck': '',
-    'busStopDay': 0,
-    'journeyId': '',
-    'journeyTimesDetails': '',
-    'busStopService': 0,
-    'busStopDest': 0,
-    'nbDeparture': 2,
-    'busStopTime':  '',
-}
-
-
-BASE_HEADERS = {
-    'Cookie': 'PHPSESSID=qo4p3id2fapnfcemfut2jbqr74',
-}
+BASE_URL = (
+    'http://old.mybustracker.co.uk/getBusStopDepartures.php?refreshCount=0&clientType=b&busStopCode=%s&busStopDay=0&busStopService=0&numberOfPassage=2&busStopTime=&busStopDestination=0')
 
 
 def fetch_feed(bus_stop_code):
-    data = BASE_DATA
-    data['busStopCode'] = bus_stop_code
-
-    return requests.post(BASE_URL, data=data, headers=BASE_HEADERS).text
+    response = requests.post(BASE_URL % (bus_stop_code, ))
+    return response.text
 
 
-def parse_feed(feed_data):
-    feed_data = feed_data.replace('<?xml version="1.0" encoding="UTF-8" ?>', '')
-    outer_root = etree.fromstring(feed_data)
-    root = etree.fromstring(outer_root.find('updateElement').text)
+def parse_feed_data(feed_data):
+    root = etree.fromstring(feed_data.replace(
+        '<?xml version="1.0" encoding="iso-8859-1"?>', '').replace('xmlns', 'xmlnamespace'))
 
     arrivals = []
 
-    for row in root.findall('.//tr'):
-        if len(row) == 3:
-            service = row[0].text
-            service_due = row[2][0].text.strip()
-
-            arrivals.append((service, service_due, ))
+    for row in root.findall('.//pre'):
+        text = ''.join(row.xpath("./text()"))
+        line = text.strip().split()
+        service, time = line[0], line[-1]
+        if time == 'DUE':
+            time = '0'
+        arrivals.append((service, int(time), ))
 
     return arrivals
 
 
-def main():
-    print parse_feed(fetch_feed(36232324))
+def format_arrivals(arrivals):
+    r = []
+
+    for serv, time in sorted(arrivals, key=lambda a: (a[1], a[0])):
+        time = str(time)
+        if time == '0':
+            time = 'Due'
+        else:
+            time += 'mins'
+        r.append(','.join([serv, time]))
+    return '\n'.join(r)
+
+
+def application(environ, start_response):
+    status = '200 OK'
+
+    headers = [
+        ('Content-Type', 'text/html')
+    ]
+
+    start_response(status, headers)
+    yield format_arrivals(
+        #[('14', 7), ('7', 0), ('7', 12)])
+        parse_feed_data(
+            fetch_feed(
+                environ.get('PATH_INFO').strip('/'))))
 
 
 if __name__ == '__main__':
-    main()
+    server = WSGIServer(('', 8000, ), application)
+    server.serve_forever()
