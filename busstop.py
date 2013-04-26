@@ -27,10 +27,24 @@ def parse_feed_data(feed_data):
         line = text.strip().split()
         service, time = line[0], line[-1]
         if time == 'DUE':
-            time = '0'
-        arrivals.append((service, int(time), ))
+            time = '00'
+        if len(time) == 1:
+            time = '0' + time
+        arrivals.append((service, time, ))
 
     return arrivals
+
+
+def time_comparator(a, b):
+    a = a.strip('*')
+    b = b.strip('*')
+    if ':' in a and ':' in b:
+        return cmp(a, b)
+    if ':' in a:
+        return 1
+    if ':' in b:
+        return -1
+    return cmp(a, b)
 
 
 def format_arrivals(arrivals):
@@ -38,12 +52,13 @@ def format_arrivals(arrivals):
     if arrivals:
         r.append('Service,Time')
 
-    for serv, time in sorted(arrivals, key=lambda a: (a[1], a[0])):
-        time = str(time)
-        if time == '0':
-            time = 'Due'
-        else:
-            time += 'mins'
+    for serv, time in sorted(
+            arrivals, cmp=lambda a, b: time_comparator(a[1], b[1])):
+        if ':' not in time:
+            if time == '00':
+                time = 'Due'
+            else:
+                time += 'mins'
         r.append(','.join([serv, time]))
     return '\n'.join(r)
 
