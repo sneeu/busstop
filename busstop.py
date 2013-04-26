@@ -50,7 +50,7 @@ def time_comparator(a, b):
 def format_arrivals(arrivals):
     r = []
     if arrivals:
-        r.append('Service,Time')
+        r.append('Serv,Time')
 
     for serv, time in sorted(
             arrivals, cmp=lambda a, b: time_comparator(a[1], b[1])):
