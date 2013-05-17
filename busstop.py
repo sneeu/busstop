@@ -1,4 +1,4 @@
-import hashlib
+import urlparse
 
 from gevent.pywsgi import WSGIServer
 import jinja2
@@ -13,6 +13,11 @@ BASE_URL = (
 
 
 jenv = jinja2.Environment(loader=jinja2.FileSystemLoader('templates/'))
+
+
+def query_string(environ, qs, default=None):
+    query_string = urlparse.parse_qs(environ.get('QUERY_STRING', ''))
+    return query_string.get(qs, default)
 
 
 def fetch_feed(bus_stop_code):
@@ -69,17 +74,18 @@ def csv_formatter(arrivals):
     return '\n'.join(r)
 
 
-def html_formatter(arrivals):
+def html_formatter(title, arrivals):
     data = []
 
-    for serv, time in arrivals:
-        colour = 'fff'
+    for serv, time in sorted(
+            arrivals, cmp=lambda a, b: time_comparator(a[1], b[1])):
+        colour = '999'
         try:
             time_int = int(time, 10)
-            if time_int < 5:
-                colour = 'f66'
-            elif time_int < 10:
-                colour = 'f96'
+            if time_int <= 5:
+                colour = 'f33'
+            elif time_int <= 10:
+                colour = 'f93'
         except:
             pass
         if ':' not in time:
@@ -90,7 +96,8 @@ def html_formatter(arrivals):
 
         data.append((colour, serv, time, ))
 
-    return jenv.get_template('busstop.html').render(data=data).encode()
+    return jenv.get_template('busstop.html').render(
+        title=title, data=data).encode()
 
 
 def application(environ, start_response):
@@ -102,12 +109,13 @@ def application(environ, start_response):
 
     path = environ.get('PATH_INFO').strip('/')
     code, fmt = path.split('.')
+    title = query_string(environ, 'title')
 
     start_response(status, headers)
 
     formatters = {
         'csv': csv_formatter,
-        'html': html_formatter,
+        'html': lambda d: html_formatter(title, d),
     }
 
     formatter = formatters.get(fmt)
