@@ -90,7 +90,7 @@ def html_formatter(arrivals):
 
         data.append((colour, serv, time, ))
 
-    return jenv.get_template('busstop.html').render(data=data)
+    return jenv.get_template('busstop.html').render(data=data).encode()
 
 
 def application(environ, start_response):
