@@ -1,4 +1,7 @@
+import hashlib
+
 from gevent.pywsgi import WSGIServer
+import jinja2
 from lxml import etree
 import requests
 
@@ -7,6 +10,9 @@ BASE_URL = (
     'http://old.mybustracker.co.uk/getBusStopDepartures.php'
     '?refreshCount=0&clientType=b&busStopCode=%s&busStopDay=0&busStopService=0'
     '&numberOfPassage=2&busStopTime=&busStopDestination=0')
+
+
+jenv = jinja2.Environment(loader=jinja2.FileSystemLoader('templates/'))
 
 
 def fetch_feed(bus_stop_code):
@@ -47,7 +53,7 @@ def time_comparator(a, b):
     return cmp(a, b)
 
 
-def format_arrivals(arrivals):
+def csv_formatter(arrivals):
     r = []
     if arrivals:
         r.append('Serv,Time')
@@ -63,6 +69,30 @@ def format_arrivals(arrivals):
     return '\n'.join(r)
 
 
+def html_formatter(arrivals):
+    data = []
+
+    for serv, time in arrivals:
+        colour = 'fff'
+        try:
+            time_int = int(time, 10)
+            if time_int < 5:
+                colour = 'f66'
+            elif time_int < 10:
+                colour = 'f96'
+        except:
+            pass
+        if ':' not in time:
+            if time == '00':
+                time = 'Due'
+            else:
+                time += ' mins'
+
+        data.append((colour, serv, time, ))
+
+    return jenv.get_template('busstop.html').render(data=data)
+
+
 def application(environ, start_response):
     status = '200 OK'
 
@@ -70,12 +100,22 @@ def application(environ, start_response):
         ('Content-Type', 'text/html')
     ]
 
+    path = environ.get('PATH_INFO').strip('/')
+    code, fmt = path.split('.')
+
     start_response(status, headers)
-    yield format_arrivals(
-        #[('14', 7), ('7', 0), ('7', 12)])
-        parse_feed_data(
-            fetch_feed(
-                environ.get('PATH_INFO').strip('/'))))
+
+    formatters = {
+        'csv': csv_formatter,
+        'html': html_formatter,
+    }
+
+    formatter = formatters.get(fmt)
+
+    if formatter:
+        yield formatter(parse_feed_data(fetch_feed(code)))
+
+    yield ''
 
 
 if __name__ == '__main__':

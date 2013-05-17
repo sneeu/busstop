@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+	<meta charset="utf-8" />
+	<title>Busstop</title>
+
+	<style type="text/css" media="screen">
+		*{margin:0;padding:0}
+		body{color:#333;font:bold 250%/1.5em "Helvetica Neue",Arial,Helvetica,sans-serif}
+		table{border-collapse:collapse;width:100%}
+		td{border:0 solid #ddd;padding:0.75em}
+		.service{border-width:1px 0 1px 1px;padding-right:0.25em}
+		.time{border-width:1px 1px 1px 0;padding-left:0.25em;text-align:right}
+	</style>
+
+</head>
+<body>
+
+	<table>
+		{% for row in data|batch(6) %}
+			<tr>
+				{% for colour, service, time in row %}
+					<td class="service" style="background-color:#{{ colour }}">{{ service }}</td>
+					<td class="time" style="background-color:#{{ colour }}">{{ time }}</td>
+				{% endfor %}
+			</tr>
+		{% endfor %}
+	</table>
+
+</body>
+</html>
